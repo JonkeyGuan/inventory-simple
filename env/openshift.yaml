@@ -1,0 +1,109 @@
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: inventory-simple
+spec:
+  to:
+    kind: Service
+    name: inventory-simple
+  port:
+    targetPort: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: inventory-simple
+  labels:
+    app: inventory-simple
+spec:
+  ports:
+    - port: 8080
+      targetPort: 8092
+      name: http
+  selector:
+    app: inventory-simple
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventory-simple
+  labels:
+    app: inventory-simple
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: inventory-simple
+  template:
+    metadata:
+      labels:
+        app: inventory-simple
+    spec:
+      containers:
+        - name: app
+          image: image-registry.openshift-image-registry.svc:5000/base-data/inventory-simple
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8092
+              name: app
+              protocol: TCP
+            - containerPort: 8778
+              name: jolokia
+              protocol: TCP
+            - containerPort: 9779
+              name: promethus
+              protocol: TCP
+          env:
+          - name: TZ
+            value: "Asia/Shanghai"
+          - name: LANG
+            value: en_US.UTF-8
+          - name: JAVA_OPTS
+            value: "-Dfile.encoding=UTF8"
+          - name: AB_JOLOKIA_AUTH_OPENSHIFT
+            value: 'true'
+          - name: AB_JOLOKIA_OPTS
+            value: 'useSslClientAuthentication=false,protocol=https'
+          - name: 'AB_JOLOKIA_PASSWORD_RANDOM'
+            value: 'false'
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8092
+              scheme: HTTP
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8092
+              scheme: HTTP
+          volumeMounts:
+          - name: data-volume
+            mountPath: /deployments/data
+      volumes:
+      - name: data-volume
+        configMap:
+          name: inventory-data
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: inventory-data
+data:
+  data.json: |
+    [
+        {
+            "id": "1",
+            "name": "测试数据",
+            "quant": 10
+        },
+        {
+            "id": "0091-20-100431",
+            "name": "呼吸机",
+            "quant": 100
+        },
+        {
+            "id": "0091-20-100432",
+            "name": "氧气瓶",
+            "quant": 200
+        }
+    ]

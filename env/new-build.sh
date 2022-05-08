@@ -1,0 +1,1 @@
+oc new-build --name inventory-simple --binary -i ubi8-openjdk-11:1.3
